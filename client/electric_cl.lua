@@ -142,22 +142,23 @@ if Config.ElectricVehicleCharging then
         local wholetankcostwithtax = math.ceil((wholetankcost) + GlobalTax(wholetankcost))
         if Config.FuelDebug then print("Attempting to open Input with the total: $"..wholetankcostwithtax.." at $"..FuelPrice.." / L".." Maximum Fuel Amount: "..maxfuel) end
         if Config.Ox.Input then
-            Electricity = lib.inputDialog('Electric Charger', {
-                { type = "input", label = 'Electric Price',
-                default = '$'.. FuelPrice .. '/KWh',
-                disabled = true },
-                { type = "input", label = 'Current Charge',
-                default = finalfuel .. ' KWh',
-                disabled = true },
-                { type = "input", label = 'Required Full Charge',
-                default = maxfuel,
-                disabled = true },
-                { type = "slider", label = 'Full Charge Cost: $' ..wholetankcostwithtax.. '',
-                default = maxfuel,
-                min = 0,
-                max = maxfuel
+            Electricity = lib.inputDialog('Carregador Elétrico', {
+                { type = "input", label = 'Preço da Eletricidade',
+                  default = 'R$'.. FuelPrice .. '/KWh',
+                  disabled = true },
+                { type = "input", label = 'Carga Atual',
+                  default = finalfuel .. ' KWh',
+                  disabled = true },
+                { type = "input", label = 'Carga Completa Necessária',
+                  default = maxfuel,
+                  disabled = true },
+                { type = "slider", label = 'Custo da Carga Completa: R$' ..wholetankcostwithtax.. '',
+                  default = maxfuel,
+                  min = 0,
+                  max = maxfuel
                 },
             })
+            
 
             if not Electricity then return end
             ElectricityAmount = tonumber(Electricity[4])
