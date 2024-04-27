@@ -1067,7 +1067,7 @@ RegisterNetEvent('cdn-fuel:client:RefuelVehicle', function(data)
 					end
 				end
 			end)
-			TriggerServerEvent("InteractSound_SV:PlayOnSource", "refuel", 0.3)
+			-- TriggerServerEvent("InteractSound_SV:PlayOnSource", "refuel", 0.3)
 			if Config.Ox.Progress then
 				if lib.progressCircle({
 					duration = time,
