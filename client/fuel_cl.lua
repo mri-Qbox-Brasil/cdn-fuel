@@ -2294,7 +2294,7 @@ AddEventHandler('onResourceStart', function(resource)
 	
 						if Config.Ox.DrawText then
 							lib.showTextUI(DrawText, {
-								position = 'left-center'
+								position = 'right-center'
 							})
 						else
 							exports[Config.Core]:DrawText(DrawText, 'left')
@@ -2457,7 +2457,7 @@ AddEventHandler("QBCore:Client:OnPlayerLoaded", function ()
 
 					if Config.Ox.DrawText then
 						lib.showTextUI(DrawText, {
-							position = 'left-center'
+							position = 'right-center'
 						})
 					else
 						exports[Config.Core]:DrawText(DrawText, 'left')

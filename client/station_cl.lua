@@ -261,7 +261,7 @@ if Config.PlayerOwnedGasStationsEnabled then -- This is so Player Owned Gas Stat
                                                         hasArrivedAtLocation = true
                                                         if Config.Ox.DrawText then
                                                             lib.showTextUI(Lang:t("draw_text_fuel_dropoff"), {
-                                                                position = 'left-center'
+                                                                position = 'right-center'
                                                             })
                                                         else
                                                             exports[Config.Core]:DrawText(Lang:t("draw_text_fuel_dropoff"), 'left')
