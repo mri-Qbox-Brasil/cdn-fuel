@@ -1,6 +1,6 @@
 -- Create Table for Fuel Stations --
 CREATE TABLE IF NOT EXISTS `fuel_stations` (
-  `location` int(11) DEFAULT NULL,
+  `location` int(11) DEFAULT NOT NULL,
   `owned` int(11) DEFAULT NULL,
   `owner` varchar(50) DEFAULT NULL,
   `fuel` int(11) DEFAULT NULL,
