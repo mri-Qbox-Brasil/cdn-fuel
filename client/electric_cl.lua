@@ -414,6 +414,7 @@ if Config.ElectricVehicleCharging then
         local ped = PlayerPedId()
         local time = amount * Config.RefuelTime
         if amount < 10 then time = 10 * Config.RefuelTime end
+        if not vehicle then return end
         local vehicleCoords = GetEntityCoords(vehicle)
         if IsInGasStation() then
             if IsPlayerNearVehicle() then
@@ -426,7 +427,7 @@ if Config.ElectricVehicleCharging then
                         return
                     end
                 end
-                TaskPlayAnim(ped, Config.RefuelAnimationDictionary, Config.RefuelAnimation, 8.0, 1.0, -1, 1, 0, 0, 0, 0)
+                TaskPlayAnim(ped, Config.RefuelAnimationDictionary, Config.RefuelAnimation, 8.0, 1.0, -1, 1, 0, false, false, false)
                 refueling = true
                 Refuelamount = 0
                 CreateThread(function()
