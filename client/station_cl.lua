@@ -1184,7 +1184,6 @@ if Config.PlayerOwnedGasStationsEnabled then -- This is so Player Owned Gas Stat
             end
         end
 
-        print(bankmoney, costofstation)
         if bankmoney < costofstation then
             QBCore.Functions.Notify(Lang:t("not_enough_money_in_bank").." R$"..costofstation, 'error', 7500) return
         end
