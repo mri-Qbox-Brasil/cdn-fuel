@@ -125,6 +125,8 @@ if Config.PlayerOwnedGasStationsEnabled then -- This is so Player Owned Gas Stat
     end)
 
     RegisterNetEvent('cdn-fuel:station:client:initiatefuelpickup', function(amountBought, finalReserveAmountAfterPurchase, location)
+        local status = lib.callback('md-refuelcdn:server:status', false)
+        if not status then return QBCore.Functions.Notify('Trabalho indisponível!', 'error') end
         if amountBought and finalReserveAmountAfterPurchase and location then
             ReservePickupData = nil
             ReservePickupData = {
@@ -230,7 +232,7 @@ if Config.PlayerOwnedGasStationsEnabled then -- This is so Player Owned Gas Stat
                                                                     DeleteEntity(spawnedDeliveryTruck)
                                                                     DeleteEntity(spawnedTankerTrailer)
                                                                     -- Send Data to Server to Put Into Station --
-                                                                    TriggerServerEvent('cdn-fuel:station:server:fuelpickup:finished', ReservePickupData.location)
+                                                                    TriggerServerEvent('cdn-fuel:station:server:fuelpickup:finished', ReservePickupData.location, ReservePickupData.amountBought)
                                                                     -- Remove Handler
                                                                     RemoveEventHandler(locationSwapHandler)
                                                                     AwaitingInput = false
@@ -444,17 +446,17 @@ if Config.PlayerOwnedGasStationsEnabled then -- This is so Player Owned Gas Stat
             local bankmoney = QBCore.Functions.GetPlayerData().money['bank']
             if Config.FuelDebug then print("Showing Input for Reserves!") end
             if Config.Ox.Input then
-                local reserves = lib.inputDialog('Purchase Reserves', {
-					{ type = "input", label = 'Current Price',
-					default = '$'.. Config.FuelReservesPrice .. ' Per Liter',
+                local reserves = lib.inputDialog('Reservas de compra', {
+					{ type = "input", label = 'Preço atual',
+					default = 'R$'.. Config.FuelReservesPrice .. ' por Litro',
 					disabled = true },
-					{ type = "input", label = 'Current Reserves',
+					{ type = "input", label = 'Reservas atuais',
 					default = Currentreserveamount,
 					disabled = true },
-					{ type = "input", label = 'Required Reserves',
+					{ type = "input", label = 'Reservas necessárias',
 					default = Config.MaxFuelReserves - Currentreserveamount,
 					disabled = true },
-					{ type = "slider", label = 'Full Reserve Cost: $' ..math.ceil(GlobalTax((Config.MaxFuelReserves - Currentreserveamount) * Config.FuelReservesPrice) + ((Config.MaxFuelReserves - Currentreserveamount) * Config.FuelReservesPrice)).. '',
+					{ type = "slider", label = 'Custo total da reserva: R$' ..math.ceil(GlobalTax((Config.MaxFuelReserves - Currentreserveamount) * Config.FuelReservesPrice) + ((Config.MaxFuelReserves - Currentreserveamount) * Config.FuelReservesPrice)).. '',
 					default = Config.MaxFuelReserves - Currentreserveamount,
 					min = 0,
 					max = Config.MaxFuelReserves - Currentreserveamount
@@ -475,6 +477,7 @@ if Config.PlayerOwnedGasStationsEnabled then -- This is so Player Owned Gas Stat
                         if math.ceil(GlobalTax(Reservebuyamount * Config.FuelReservesPrice) + (Reservebuyamount * Config.FuelReservesPrice)) <= bankmoney then
                             local price = math.ceil(GlobalTax(Reservebuyamount * Config.FuelReservesPrice) + (Reservebuyamount * Config.FuelReservesPrice))
                             if Config.FuelDebug then print("Price: "..price) end
+
                             TriggerEvent("cdn-fuel:stations:client:purchasereserves:final", location, price, amount)
 
                         else
@@ -762,7 +765,7 @@ if Config.PlayerOwnedGasStationsEnabled then -- This is so Player Owned Gas Stat
                     options = {
                         {
                             title = Lang:t("menu_manage_reserves_header"),
-                            description = 'Buy your reserve fuel here!',
+                            description = 'Compre seu combustível de reserva aqui!',
                             icon = "fas fa-info-circle",
                             arrow = true, -- puts arrow to the right
                             event = 'cdn-fuel:stations:client:purchasereserves',
@@ -770,13 +773,13 @@ if Config.PlayerOwnedGasStationsEnabled then -- This is so Player Owned Gas Stat
                                 location = location,
                             },
                             metadata = {
-                                {label = 'Reserve Stock: ', value = ReserveLevels..Lang:t("menu_manage_reserves_footer_1")..Config.MaxFuelReserves},
+                                {label = 'Estoque de reserva', value = ReserveLevels..Lang:t("menu_manage_reserves_footer_1")..Config.MaxFuelReserves},
                             },
                             disabled = ReservesNotBuyable,
                         },
                         {
                             title = Lang:t("menu_alter_fuel_price_header"),
-                            description = "I want to change the price of fuel at my Gas Station!",
+                            description = "Eu quero mudar o preço do combustível no meu posto de gasolina!",
                             icon = "fas fa-usd",
                             arrow = false, -- puts arrow to the right
                             event = 'cdn-fuel:stations:client:changefuelprice',
@@ -784,7 +787,7 @@ if Config.PlayerOwnedGasStationsEnabled then -- This is so Player Owned Gas Stat
                                 location = location,
                             },
                             metadata = {
-                                {label = 'Current Fuel Price: ', value = "$"..Comma_Value(StationFuelPrice)..Lang:t("input_alter_fuel_price_header_2")},
+                                {label = 'Preço atual de combustível', value = "R$"..Comma_Value(StationFuelPrice)..Lang:t("input_alter_fuel_price_header_2")},
                             },
                             disabled = CanNotChangeFuelPrice,
                         },
@@ -853,7 +856,7 @@ if Config.PlayerOwnedGasStationsEnabled then -- This is so Player Owned Gas Stat
                     {
                         header = Lang:t("menu_alter_fuel_price_header"),
                         icon = "fas fa-usd",
-                        txt = "I want to change the price of fuel at my Gas Station! <br> Currently, it is $"..StationFuelPrice..Lang:t("input_alter_fuel_price_header_2") ,
+                        txt = "Eu quero mudar o preço do combustível no meu posto de gasolina! <br> Currently, it is $"..StationFuelPrice..Lang:t("input_alter_fuel_price_header_2") ,
                         params = {
                             event = "cdn-fuel:stations:client:changefuelprice",
                             args = {

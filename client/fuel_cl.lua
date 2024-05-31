@@ -731,42 +731,42 @@ RegisterNetEvent('cdn-fuel:client:FinalMenu', function(purchasetype)
 				local wholetankcost = (FuelPrice * ReserveLevels)
 				local wholetankcostwithtax = math.ceil(FuelPrice * ReserveLevels + GlobalTax(wholetankcost))
 				fuel = exports['qb-input']:ShowInput({
-					header = "Select the Amount of Fuel<br>Current Price: $" ..
-					FuelPrice .. " / Liter <br> Current Fuel: " .. finalfuel .. " Liters <br> Full Tank Cost: $" ..
+					header = "Selecione a quantidade de combustível <br> Preço atual: R$" ..
+					FuelPrice .. " / Litro <br> combustível atual: " .. finalfuel .. " Litros <br> Custo completo do tanque: R$" ..
 					wholetankcostwithtax .. "",
 					submitText = Lang:t("input_insert_nozzle"),
 					inputs = { {
 						type = 'number',
 						isRequired = true,
 						name = 'amount',
-						text = 'Only '..ReserveLevels..' Liters are available.'
+						text = 'Apenas '..ReserveLevels..' litros estão disponíveis.'
 					}}
 				})
 			else
 				fuel = exports['qb-input']:ShowInput({
-					header = "Select the Amount of Fuel<br>Current Price: $" ..
-					FuelPrice .. " / Liter <br> Current Fuel: " .. finalfuel .. " Liters <br> Full Tank Cost: $" ..
+					header = "Selecione a quantidade de combustível <br> Preço atual: R$" ..
+					FuelPrice .. " / Litro <br> combustível atual: " .. finalfuel .. "Litros <br> Custo completo do tanque: R$" ..
 					wholetankcostwithtax .. "",
 					submitText = Lang:t("input_insert_nozzle"),
 					inputs = { {
 						type = 'number',
 						isRequired = true,
 						name = 'amount',
-						text = 'The Tank Can Hold ' .. maxfuel .. ' More Liters.'
+						text = 'O tanque pode encher ' .. maxfuel .. ' mais litros.'
 					}}
 				})
 			end
 		else
 			fuel = exports['qb-input']:ShowInput({
-				header = "Select the Amount of Fuel<br>Current Price: $" ..
-				FuelPrice .. " / Liter <br> Current Fuel: " .. finalfuel .. " Liters <br> Full Tank Cost: $" ..
+				header = "Selecione a quantidade de combustível <br> Preço atual: R$" ..
+				FuelPrice .. " / Litro <br> combustível atual: " .. finalfuel .. " Litros <br> Custo completo do tanque: R$" ..
 				wholetankcostwithtax .. "",
 				submitText = Lang:t("input_insert_nozzle"),
 				inputs = { {
 					type = 'number',
 					isRequired = true,
 					name = 'amount',
-					text = 'The Tank Can Hold ' .. maxfuel .. ' More Liters.'
+					text = 'O tanque pode encher ' .. maxfuel .. ' mais litros.'
 				}}
 			})
 		end
@@ -813,7 +813,7 @@ RegisterNetEvent('cdn-fuel:client:SendMenuToServer', function(type)
 		if not holdingnozzle and not type == 'special' then return end
 		local header
 		if type == 'special' then
-			header = "Refuel Vehicle"
+			header = "Veículo de reabastecimento"
 			RefuelingType = 'special'
 		else
 			header = Config.GasStations[CurrentLocation].label
@@ -822,7 +822,7 @@ RegisterNetEvent('cdn-fuel:client:SendMenuToServer', function(type)
 			if Config.Ox.Menu then
 				lib.registerContext({
 					id = 'cdnfueldmainmenu',
-					title = 'Gas Station',
+					title = 'Posto de gasolina',
 					icon = "fas fa-gas-pump",
 					options = {
 						{
@@ -911,7 +911,7 @@ RegisterNetEvent('cdn-fuel:client:RefuelVehicle', function(data)
 	else
 		purchasetype = RefuelPurchaseType
 	end
-	if Config.FuelDebug then print("Purchase Type: "..purchasetype) end
+	if Config.FuelDebug then print("Tipo de compra: "..purchasetype) end
 	if not Config.RenewedPhonePayment then
 		amount = data.fuelamounttotal
 	elseif data.purchasetype == "cash" then
@@ -963,30 +963,30 @@ RegisterNetEvent('cdn-fuel:client:RefuelVehicle', function(data)
 			else
 				if discount <= 0 then discount = 0 end
 			end
-			if Config.FuelDebug then print("Before we apply the discount the FuelPrice is: $"..FuelPrice) end
+			if Config.FuelDebug then print("Antes de aplicarmos o desconto, o price de combustível é: R$"..FuelPrice) end
 			if discount ~= 0 then
 				if discount == 100 then
 					CachedFuelPrice = FuelPrice
 					FuelPrice = 0
 					if Config.FuelDebug then
-						print("Your discount for Emergency Services is set @ | "..discount.."% | so fuel is free!")
+						print("Seu desconto para serviços de emergência está definido @ |"..discount .."% |Então o combustível é grátis!")
 					end
 				else
 					discount = discount / 100
 					if Config.FuelDebug then
-						print("Math( Current Fuel Price: "..FuelPrice.. " - " ..FuelPrice * discount.. "<<-- FuelPrice * Discount)")
+						print("Matemática (preço atual do combustível:"..FuelPrice.. " - " ..FuelPrice * discount.. "<<- FuelPrice * desconto)")
 					end
 
 					CachedFuelPrice = FuelPrice
 					FuelPrice = FuelPrice - (FuelPrice*discount)
 
 					if Config.FuelDebug then
-						print("Your discount for Emergency Services is set @ "..discount.."%. Setting new price to: $"..FuelPrice)
+						print("Seu desconto para serviços de emergência está definido@ "..discount.."%. Definindo novo preço para: $"..FuelPrice)
 					end
 				end
 			else
 				if Config.FuelDebug then
-					print("Your discount for Emergency Services is set @ "..discount.."%. It cannot be 0 or < 0!")
+					print("Seu desconto para serviços de emergência está definido@ "..discount.."%. Não pode ser 0 ou <0!")
 				end
 			end
 		end

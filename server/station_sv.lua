@@ -177,6 +177,13 @@ if Config.PlayerOwnedGasStationsEnabled then -- This is so Player Owned Gas Stat
             if Config.FuelDebug then print("No Result Fetched!!") end
         end
         if Config.FuelDebug then print("Attempting Sale Server Side for location: #"..location.." for Price: $"..price) end
+
+        local status = exports['maji-gasdelivery']:Refuelcdn_status()
+        if status then
+            TriggerClientEvent('QBCore:Notify', src, "Estamos com um pedido em andamento, tente mais tarde.", 'error', 10000)
+            return
+        end
+
         if ReserveBuyPossible and Player.Functions.RemoveMoney("bank", price, "Purchased"..amount.."L of Reserves for: "..Config.GasStations[location].label.." @ $"..Config.FuelReservesPrice.." / L!") then
             if not Config.OwnersPickupFuel then
                 MySQL.Async.execute('UPDATE fuel_stations SET fuel = ? WHERE `location` = ?', {NewAmount, location})
@@ -187,7 +194,11 @@ if Config.PlayerOwnedGasStationsEnabled then -- This is so Player Owned Gas Stat
                     ['refuelAmount'] = NewAmount,
                     ['amountBought'] = amount,
                 }
-                TriggerClientEvent('cdn-fuel:station:client:initiatefuelpickup', src, amount, NewAmount, location)
+                TriggerClientEvent("md-refuelcdn:client:set", -1, amount, NewAmount, location)
+                TriggerEvent("md-refuelcdn:server:set")
+                TriggerClientEvent('QBCore:Notify', -1, "Um novo carregamento de combustível está disponível!", 'success', 30000)
+
+                -- TriggerClientEvent('cdn-fuel:station:client:initiatefuelpickup', src, amount, NewAmount, location)
                 if Config.FuelDebug then print("Initiating a Fuel Pickup for Location: "..location.." with for the amount of "..NewAmount.." | Triggered By: Source: "..src) end
             end
 
@@ -215,8 +226,13 @@ if Config.PlayerOwnedGasStationsEnabled then -- This is so Player Owned Gas Stat
         end
     end)
 
-    RegisterNetEvent('cdn-fuel:station:server:fuelpickup:finished', function(location)
+    RegisterNetEvent('cdn-fuel:station:server:fuelpickup:finished', function(location, amount)
         local src = source
+        local Player = QBCore.Functions.GetPlayer(src)
+        local amount = amount * 0.5
+        Player.Functions.AddMoney("bank", amount, "Pagamento por Reabastecimento de Posto")
+        TriggerClientEvent('QBCore:Notify', src, "Recebeu R$"..amount.." de pagamento pelo serviço!", 'success', 10000)
+        exports["cw-rep"]:updateSkill(source, "trucker", 5)
         if location then
             if FuelPickupSent[location] then
                 local cid = QBCore.Functions.GetPlayer(src).PlayerData.citizenid
