@@ -27,7 +27,7 @@ if Config.PlayerOwnedGasStationsEnabled then -- This is so Player Owned Gas Stat
                     if info == "all" or info == "reserves" then
                         if Config.FuelDebug then print("Fetched Reserve Levels: "..v.fuel.." Liters!") end
                         Currentreserveamount = v.fuel
-                        ReserveLevels = Currentreserveamount
+                        ReserveLevels = Currentreserveamount or 0
                         if Currentreserveamount < Config.MaxFuelReserves then
                             ReservesNotBuyable = false
                         else
@@ -211,12 +211,12 @@ if Config.PlayerOwnedGasStationsEnabled then -- This is so Player Owned Gas Stat
                                                                     -- Handle Vehicle Dropoff
                                                                     -- Remove PolyZone --
                                                                     ReservePickupData.PolyZone:destroy()
-                                                                    ReservePickupData.PolyZone = nil                                                       
+                                                                    ReservePickupData.PolyZone = nil
                                                                     -- Get Ped Out of Vehicle if Inside --
                                                                     if IsPedInAnyVehicle(ped, true) and GetVehiclePedIsIn(ped, false) == spawnedDeliveryTruck then
                                                                         TaskLeaveVehicle(
-                                                                            ped --[[ Ped ]], 
-                                                                            spawnedDeliveryTruck --[[ Vehicle ]], 
+                                                                            ped --[[ Ped ]],
+                                                                            spawnedDeliveryTruck --[[ Vehicle ]],
                                                                             1 --[[ flags | integer ]]
                                                                         )
                                                                         Wait(5000)
@@ -227,8 +227,8 @@ if Config.PlayerOwnedGasStationsEnabled then -- This is so Player Owned Gas Stat
                                                                     else
                                                                         exports[Config.Core]:HideText()
                                                                     end
-                                                                    
-                                                                    -- Remove Vehicle --                                            
+
+                                                                    -- Remove Vehicle --
                                                                     DeleteEntity(spawnedDeliveryTruck)
                                                                     DeleteEntity(spawnedTankerTrailer)
                                                                     -- Send Data to Server to Put Into Station --
