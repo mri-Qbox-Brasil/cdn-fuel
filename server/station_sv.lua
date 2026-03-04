@@ -105,6 +105,11 @@ if Config.PlayerOwnedGasStationsEnabled then -- This is so Player Owned Gas Stat
         local src = source
         if Config.FuelDebug then print("Toggling Emergency Shutoff Valves for Location #"..location) end
         Config.GasStations[location].shutoff = not Config.GasStations[location].shutoff
+        
+        -- Persist to Database
+        local shutoffState = Config.GasStations[location].shutoff and 1 or 0
+        MySQL.Async.execute('UPDATE fuel_stations SET shutoff = ? WHERE location = ?', {shutoffState, location})
+
         Wait(5)
         TriggerClientEvent('QBCore:Notify', src, Lang:t("station_shutoff_success"), 'success')
         if Config.FuelDebug then print('Successfully altered the shutoff valve state for location #'..location..'!') end
@@ -154,28 +159,32 @@ if Config.PlayerOwnedGasStationsEnabled then -- This is so Player Owned Gas Stat
         local amount = amount
         local src = source
         local Player = QBCore.Functions.GetPlayer(src)
+        local OldBalance = 0
         local result = MySQL.Sync.fetchAll('SELECT * FROM fuel_stations WHERE `location` = ?', {location})
-        if result then
-            if Config.FuelDebug then print("Result Fetched!") end
-            for k, v in pairs(result) do
-                local gasstationinfo = json.encode(v)
-                if Config.FuelDebug then print(gasstationinfo) print(v.fuel) end
-                if v.fuel + amount > Config.MaxFuelReserves then
-                    ReserveBuyPossible = false
-                    if Config.FuelDebug then print("Purchase is not possible, as reserves will be greater than the maximum amount!") end
-                    TriggerClientEvent('QBCore:Notify', src, Lang:t("station_reserves_over_max"), 'error')
-                elseif v.fuel + amount <= Config.MaxFuelReserves then
+        if result and result[1] then
+            local v = result[1]
+            if Config.FuelDebug then print(json.encode(v)) print(v.fuel) end
+            if v.fuel + amount > Config.MaxFuelReserves then
+                ReserveBuyPossible = false
+                if Config.FuelDebug then print("Purchase is not possible, as reserves will be greater than the maximum amount!") end
+                TriggerClientEvent('QBCore:Notify', src, Lang:t("station_reserves_over_max"), 'error')
+            else
+                OldBalance = tonumber(v.balance) or 0
+                if OldBalance >= price then
                     ReserveBuyPossible = true
-                    OldAmount = v.fuel
+                    OldAmount = tonumber(v.fuel) or 0
                     NewAmount = OldAmount + amount
-                    if Config.FuelDebug then print("Purchase is possible, as reserves will be below or equal to the maximum amount!") end
+                    if Config.FuelDebug then print("Purchase is possible, as reserves will be below or equal to the maximum amount and station has sufficient balance!") end
                 else
-                    if Config.FuelDebug then print('error fetching v.fuel') end
+                    ReserveBuyPossible = false
+                    TriggerClientEvent('QBCore:Notify', src, 'O posto não tem dinheiro suficiente no caixa para comprar reservas!', 'error')
+                    if Config.FuelDebug then print("Purchase is not possible, station balance is insufficient! Found: $"..OldBalance.." Required: $"..price) end
                 end
             end
         else
             if Config.FuelDebug then print("No Result Fetched!!") end
         end
+        
         if Config.FuelDebug then print("Attempting Sale Server Side for location: #"..location.." for Price: $"..price) end
 
         local status = exports['maji-gasdelivery']:Refuelcdn_status()
@@ -184,10 +193,14 @@ if Config.PlayerOwnedGasStationsEnabled then -- This is so Player Owned Gas Stat
             return
         end
 
-        if ReserveBuyPossible and Player.Functions.RemoveMoney("bank", price, "Purchased"..amount.."L of Reserves for: "..Config.GasStations[location].label.." @ $"..Config.FuelReservesPrice.." / L!") then
+        if ReserveBuyPossible then
+            local newBalance = OldBalance - price
+            MySQL.Async.execute('UPDATE fuel_stations SET balance = ? WHERE `location` = ?', {newBalance, location})
+
             if not Config.OwnersPickupFuel then
                 MySQL.Async.execute('UPDATE fuel_stations SET fuel = ? WHERE `location` = ?', {NewAmount, location})
                 if Config.FuelDebug then print("SQL Execute Update: fuel_station level to: "..NewAmount.. " Math: ("..amount.." + "..OldAmount.." = "..NewAmount) end
+                TriggerClientEvent('QBCore:Notify', src, "Reserva comprada com o dinheiro do posto! Descontado: $"..price, 'success')
             else
                 FuelPickupSent[location] = {
                     ['src'] = src,
@@ -197,13 +210,11 @@ if Config.PlayerOwnedGasStationsEnabled then -- This is so Player Owned Gas Stat
                 TriggerClientEvent("md-refuelcdn:client:set", -1, amount, NewAmount, location)
                 TriggerEvent("md-refuelcdn:server:set")
                 TriggerClientEvent('QBCore:Notify', -1, "Um novo carregamento de combustível está disponível!", 'success', 30000)
-
+                TriggerClientEvent('QBCore:Notify', src, "Reserva solicitada com o dinheiro do posto! Descontado: $"..price, 'success')
+                
                 -- TriggerClientEvent('cdn-fuel:station:client:initiatefuelpickup', src, amount, NewAmount, location)
                 if Config.FuelDebug then print("Initiating a Fuel Pickup for Location: "..location.." with for the amount of "..NewAmount.." | Triggered By: Source: "..src) end
             end
-
-        elseif ReserveBuyPossible then
-            TriggerClientEvent('QBCore:Notify', src, Lang:t("not_enough_money"), 'error')
         end
     end)
 
@@ -256,9 +267,33 @@ if Config.PlayerOwnedGasStationsEnabled then -- This is so Player Owned Gas Stat
         local src = source
         if Config.FuelDebug then print('Attempting to set name for Location #'..location..' to: '..newName) end
         MySQL.Async.execute('UPDATE fuel_stations SET label = ? WHERE `location` = ?', {newName, location})
+        
+        -- Update Config Server Side
+        if Config.GasStations[location] then
+            Config.GasStations[location].label = newName
+        end
+
         if Config.FuelDebug then print('Successfully executed the previous SQL Update!') end
         TriggerClientEvent('QBCore:Notify', src, Lang:t("station_name_change_success")..newName.."!", 'success')
         TriggerClientEvent('cdn-fuel:client:updatestationlabels', -1, location, newName)
+    end)
+
+    RegisterNetEvent('cdn-fuel:station:server:updatelogo', function(logoUrl, location)
+        local src = source
+        -- Basic validation
+        if not logoUrl or logoUrl == "" then 
+            logoUrl = nil 
+        end
+
+        MySQL.Async.execute('UPDATE fuel_stations SET logo = ? WHERE `location` = ?', {logoUrl, location})
+        
+        -- Update Config Server Side
+        if Config.GasStations[location] then
+            Config.GasStations[location].logo = logoUrl
+        end
+
+        TriggerClientEvent('QBCore:Notify', src, "Logo atualizado com sucesso!", 'success')
+        TriggerClientEvent('cdn-fuel:client:updatestationlogo', -1, location, logoUrl)
     end)
 
     -- Callbacks 
@@ -306,6 +341,7 @@ if Config.PlayerOwnedGasStationsEnabled then -- This is so Player Owned Gas Stat
     QBCore.Functions.CreateCallback('cdn-fuel:server:isowner', function(source, cb, location)
         local src = source
         local Player = QBCore.Functions.GetPlayer(src)
+        if not Player then cb(false) return end
         local citizenid = Player.PlayerData.citizenid
         if Config.FuelDebug then print("working on it.") end
         local result = MySQL.Sync.fetchAll('SELECT * FROM fuel_stations WHERE `owner` = ? AND location = ?', {citizenid, location})
@@ -356,14 +392,198 @@ if Config.PlayerOwnedGasStationsEnabled then -- This is so Player Owned Gas Stat
 	    end)
 	end)
 
+    QBCore.Functions.CreateCallback('cdn-fuel:server:getAnalytics', function(source, cb, location)
+        if Config.FuelDebug then print("CDN-Fuel: Analytics requested for location: " .. tostring(location)) end
+        -- Fetch last 7 days of sales aggregated by day
+        local query = [[
+            SELECT DATE(date) as day, SUM(amount) as total_liters, SUM(cost) as total_revenue
+            FROM fuel_station_sales 
+            WHERE station_location = ? AND date >= DATE(NOW()) - INTERVAL 7 DAY
+            GROUP BY DATE(date)
+            ORDER BY day ASC
+        ]]
+        
+        MySQL.Async.fetchAll(query, {location}, function(dailySales)
+            if Config.FuelDebug then print("CDN-Fuel: Daily sales fetched: " .. tostring(dailySales and #dailySales or 0)) end
+            
+            -- Calculate Advanced Stats
+            local weekLiters = 0
+            local weekRevenue = 0
+            local peakDay = { day = "N/A", liters = 0 }
+            
+            if dailySales then
+                for _, s in pairs(dailySales) do
+                    weekLiters = weekLiters + (s.total_liters or 0)
+                    weekRevenue = weekRevenue + (s.total_revenue or 0)
+                    if (s.total_liters or 0) > peakDay.liters then
+                        peakDay.liters = s.total_liters
+                        peakDay.day = s.day
+                    end
+                end
+            end
+
+            -- Fetch Total Liters & Revenue (Lifetime)
+            MySQL.Async.fetchAll('SELECT SUM(amount) as total_liters, SUM(cost) as total_revenue FROM fuel_station_sales WHERE station_location = ?', {location}, function(totalsResult)
+                local lifetime = totalsResult and totalsResult[1] or { total_liters = 0, total_revenue = 0 }
+
+                -- Fetch weekly logs
+                MySQL.Async.fetchAll('SELECT * FROM fuel_station_weekly_logs WHERE station_location = ? ORDER BY end_date DESC LIMIT 10', {location}, function(weeklyLogs)
+                    if Config.FuelDebug then print("CDN-Fuel: Weekly logs fetched: " .. tostring(weeklyLogs and #weeklyLogs or 0)) end
+                    cb({
+                        dailySales = dailySales or {},
+                        weeklyLogs = weeklyLogs or {},
+                        stats = {
+                            totalLiters = lifetime.total_liters or 0,
+                            totalRevenue = lifetime.total_revenue or 0,
+                            weekLiters = weekLiters,
+                            weekRevenue = weekRevenue,
+                            peakDay = peakDay
+                        }
+                    })
+                end)
+            end)
+        end)
+    end)
+
+    RegisterNetEvent('cdn-fuel:server:closeWeek', function(location, startDate, endDate)
+        local src = source
+        local Player = QBCore.Functions.GetPlayer(src)
+        if not Player then return end
+        local citizenid = Player.PlayerData.citizenid
+
+        if Config.FuelDebug then 
+            print("^2CDN-Fuel: closeWeek Debug^7")
+            print("Location:", location)
+            print("NUI Start:", startDate)
+            print("NUI End:", endDate)
+            print("CitizenID:", citizenid)
+        end
+
+        -- Check ownership directly
+        MySQL.Async.fetchAll('SELECT owner FROM fuel_stations WHERE location = ?', {location}, function(result)
+            if result and result[1] and result[1].owner == citizenid then
+                -- Normalization: If dates are just YYYY-MM-DD, expand them to full days
+                if startDate and startDate ~= "" and #startDate <= 10 then startDate = startDate .. " 00:00:00" end
+                if endDate and endDate ~= "" and #endDate <= 10 then endDate = endDate .. " 23:59:59" end
+
+                -- Fallback to default range if not provided (empty or nil)
+                if not startDate or startDate == "" or not endDate or endDate == "" then
+                   if Config.FuelDebug then print("CDN-Fuel: Dates missing/empty, using fallback.") end
+                   local lastLogResult = MySQL.Sync.fetchAll('SELECT end_date FROM fuel_station_weekly_logs WHERE station_location = ? ORDER BY end_date DESC LIMIT 1', {location})
+                   startDate = (lastLogResult and lastLogResult[1]) and lastLogResult[1].end_date or "1970-01-01 00:00:00"
+                   endDate = os.date('%Y-%m-%d %H:%M:%S')
+                end
+
+                if Config.FuelDebug then 
+                    print("Final Start:", startDate)
+                    print("Final End:", endDate)
+                end
+
+                -- Calculate totals for this period
+                local query = [[
+                    SELECT SUM(amount) as total_liters, SUM(cost) as total_revenue
+                    FROM fuel_station_sales 
+                    WHERE station_location = ? AND date >= ? AND date <= ?
+                ]]
+
+                MySQL.Async.fetchAll(query, {location, startDate, endDate}, function(totals)
+                    local liters = totals[1].total_liters or 0
+                    local revenue = totals[1].total_revenue or 0
+
+                    if liters > 0 then
+                        -- Fetch daily peak for this specific period
+                        local peakQuery = [[
+                            SELECT SUM(amount) as daily_total
+                            FROM fuel_station_sales
+                            WHERE station_location = ? AND date >= ? AND date <= ?
+                            GROUP BY DATE(date)
+                            ORDER BY daily_total DESC
+                            LIMIT 1
+                        ]]
+                        MySQL.Async.fetchAll(peakQuery, {location, startDate, endDate}, function(peakResult)
+                            local peak = (peakResult and peakResult[1]) and peakResult[1].daily_total or 0
+                            
+                            MySQL.Async.execute('INSERT INTO fuel_station_weekly_logs (station_location, start_date, end_date, total_liters, peak_liters, total_revenue) VALUES (?, ?, ?, ?, ?, ?)',
+                                {location, startDate, endDate, liters, peak, revenue})
+                            TriggerClientEvent('QBCore:Notify', src, "Semana fechada com sucesso!", "success")
+                        end)
+                    else
+                        TriggerClientEvent('QBCore:Notify', src, "Não houve vendas neste período para fechar.", "error")
+                    end
+                end)
+            else
+                if Config.FuelDebug then print("Unauthorized closeWeek attempt by " .. tostring(citizenid)) end
+            end
+        end)
+    end)
+
+    QBCore.Functions.CreateCallback('cdn-fuel:server:getSales', function(source, cb, location)
+        MySQL.Async.fetchAll('SELECT * FROM fuel_station_sales WHERE station_location = ? ORDER BY date DESC LIMIT 50', {location}, function(result)
+            cb(result)
+        end)
+    end)
+
     -- Startup Process
     local function Startup()
-        if Config.FuelDebug then print("Startup process...") end
-        local location = 0
-        for value in ipairs(Config.GasStations) do
-            location = location + 1
-            UpdateStationLabel(location)
+        if Config.FuelDebug then print("Startup process check...") end
+        
+        local function ContinueStartup()
+            -- Load Dynamic Stations First
+            LoadDynamicStations()
+
+            local location = 0
+            for value in ipairs(Config.GasStations) do
+                location = location + 1
+                UpdateStationLabel(location)
+            end
+            print("^2[CDN-Fuel] Database integration active & Verified.^7")
         end
+
+        -- Check if table exists
+        MySQL.Async.fetchAll("SHOW TABLES LIKE 'fuel_stations'", {}, function(result)
+            if result and #result > 0 then
+                ContinueStartup()
+            else
+                print("^3[CDN-FUEL] Database tables missing! Attempting auto-installation...^7")
+                local sqlContent = LoadResourceFile(GetCurrentResourceName(), "assets/sql/cdn-fuel.sql")
+                if sqlContent then
+                    -- Clean comments and split queries
+                    -- Removes comments lines starting with --
+                    sqlContent = sqlContent:gsub("%-%-[^\n]*", "") 
+                    
+                    local queries = {}
+                    for query in string.gmatch(sqlContent, "([^;]+)") do
+                        local cleanQuery = query:gsub("^%s+", ""):gsub("%s+$", "") -- Trim whitespace
+                        if cleanQuery ~= "" then
+                            table.insert(queries, cleanQuery)
+                        end
+                    end
+
+                    local totalQueries = #queries
+                    local completed = 0
+
+                    if totalQueries == 0 then
+                        print("^1[CDN-FUEL] SQL file found but no valid queries extracted.^7")
+                        return
+                    end
+
+                    print("^2[CDN-FUEL] Installing tables... ("..totalQueries.." queries)^7")
+
+                    for i, query in ipairs(queries) do
+                        MySQL.Async.execute(query, {}, function(rows)
+                            completed = completed + 1
+                            if completed == totalQueries then
+                                print("^2[CDN-FUEL] SQL installed successfully! Starting resource...^7")
+                                Wait(500)
+                                ContinueStartup()
+                            end
+                        end)
+                    end
+                else
+                    print("^1[CDN-FUEL] CRITICAL: assets/sql/cdn-fuel.sql not found! Cannot install database.^7")
+                end
+            end
+        end)
     end
 
     AddEventHandler('onResourceStart', function(resource)

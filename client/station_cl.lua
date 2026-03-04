@@ -56,7 +56,7 @@ if Config.PlayerOwnedGasStationsEnabled then -- This is so Player Owned Gas Stat
             local current = Config.GasStations[i]
             current.pedmodel = type(current.pedmodel) == 'string' and joaat(current.pedmodel) or current.pedmodel
             RequestAndLoadModel(current.pedmodel)
-            local ped = CreatePed(0, current.pedmodel, current.pedcoords.x, current.pedcoords.y, current.pedcoords.z, current.pedcoords.h, false, false)
+            local ped = CreatePed(0, current.pedmodel, current.pedcoords.x, current.pedcoords.y, current.pedcoords.z, current.pedcoords.w, false, false)
             FreezeEntityPosition(ped, true)
             SetEntityInvincible(ped, true)
             SetBlockingOfNonTemporaryEvents(ped, true)
@@ -67,7 +67,7 @@ if Config.PlayerOwnedGasStationsEnabled then -- This is so Player Owned Gas Stat
                         label = Lang:t("station_talk_to_ped"),
                         icon = "fas fa-building",
                         action = function()
-                            TriggerEvent('cdn-fuel:stations:openmenu', CurrentLocation)
+                            TriggerEvent('cdn-fuel:stations:openmenu', i)
                         end,
                     },
                 },
@@ -757,154 +757,37 @@ if Config.PlayerOwnedGasStationsEnabled then -- This is so Player Owned Gas Stat
         Wait(5)
         Wait(Config.WaitTime)
         if CanOpen then
-            local GasStationCost = (Config.GasStations[location].cost + GlobalTax(Config.GasStations[location].cost))
-            if Config.Ox.Menu then
-                lib.registerContext({
-                    id = 'stationmanagemenu',
-                    title = Lang:t("menu_manage_header")..Config.GasStations[location].label,
-                    options = {
-                        {
-                            title = Lang:t("menu_manage_reserves_header"),
-                            description = 'Compre seu combustível de reserva aqui!',
-                            icon = "fas fa-info-circle",
-                            arrow = true, -- puts arrow to the right
-                            event = 'cdn-fuel:stations:client:purchasereserves',
-                            args = {
-                                location = location,
-                            },
-                            metadata = {
-                                {label = 'Estoque de reserva', value = ReserveLevels..Lang:t("menu_manage_reserves_footer_1")..Config.MaxFuelReserves},
-                            },
-                            disabled = ReservesNotBuyable,
-                        },
-                        {
-                            title = Lang:t("menu_alter_fuel_price_header"),
-                            description = "Eu quero mudar o preço do combustível no meu posto de gasolina!",
-                            icon = "fas fa-usd",
-                            arrow = false, -- puts arrow to the right
-                            event = 'cdn-fuel:stations:client:changefuelprice',
-                            args = {
-                                location = location,
-                            },
-                            metadata = {
-                                {label = 'Preço atual de combustível', value = "R$"..Comma_Value(StationFuelPrice)..Lang:t("input_alter_fuel_price_header_2")},
-                            },
-                            disabled = CanNotChangeFuelPrice,
-                        },
-                        {
-                            title = Lang:t("menu_manage_company_funds_header"),
-                            description = Lang:t("menu_manage_company_funds_footer"),
-                            icon = "fas fa-usd",
-                            arrow = false, -- puts arrow to the right
-                            event = 'cdn-fuel:stations:client:managefunds'
-                        },
-                        {
-                            title = Lang:t("menu_manage_change_name_header"),
-                            description = Lang:t("menu_manage_change_name_footer"),
-                            icon = "fas fa-pen",
-                            arrow = false, -- puts arrow to the right
-                            event = 'cdn-fuel:stations:client:changestationname',
-                            disabled = not Config.GasStationNameChanges,
-                        },
-                        {
-                            title = Lang:t("menu_sell_station_header_accept"),
-                            description = Lang:t("menu_manage_sell_station_footer")..Comma_Value(math.percent(Config.GasStationSellPercentage, GasStationCost)),
-                            icon = "fas fa-usd",
-                            arrow = false, -- puts arrow to the right
-                            event = 'cdn-fuel:stations:client:sellstation:menu',
-                            args = {
-                                location = location,
-                            },
-                        },
-                        {
-                            title = Lang:t("menu_header_close"),
-                            description = Lang:t("menu_refuel_cancel"),
-                            icon = "fas fa-times-circle",
-                            arrow = false, -- puts arrow to the right
-                            onSelect = function()
-                                lib.hideContext()
-                              end,
-                        },
-                    },
-                })
-                lib.showContext('stationmanagemenu')
-            else
-                exports['qb-menu']:openMenu({
-                    {
-                        header = Lang:t("menu_manage_header")..Config.GasStations[location].label,
-                        isMenuHeader = true,
-                        icon = "fas fa-gas-pump",
-                    },
-                    {
-                        header = Lang:t("menu_manage_reserves_header"),
-                        icon = "fas fa-info-circle",
-                        isMenuHeader = true,
-                        txt = ReserveLevels..Lang:t("menu_manage_reserves_footer_1")..Config.MaxFuelReserves..Lang:t("menu_manage_reserves_footer_2"),
-                    },
-                    {
-                        header = Lang:t("menu_manage_purchase_reserves_header"),
-                        icon = "fas fa-usd",
-                        txt = Lang:t("menu_manage_purchase_reserves_footer")..Config.FuelReservesPrice..Lang:t("menu_manage_purchase_reserves_footer_2") ,
-                        params = {
-                            event = "cdn-fuel:stations:client:purchasereserves",
-                            args = {
-                                location = location,
-                            }
-                        },
-                        disabled = ReservesNotBuyable,
-                    },
-                    {
-                        header = Lang:t("menu_alter_fuel_price_header"),
-                        icon = "fas fa-usd",
-                        txt = "Eu quero mudar o preço do combustível no meu posto de gasolina! <br> Currently, it is $"..StationFuelPrice..Lang:t("input_alter_fuel_price_header_2") ,
-                        params = {
-                            event = "cdn-fuel:stations:client:changefuelprice",
-                            args = {
-                                location = location,
-                            }
-                        },
-                        disabled = CanNotChangeFuelPrice,
-                    },
-                    {
-                        header = Lang:t("menu_manage_company_funds_header"),
-                        icon = "fas fa-usd",
-                        txt = Lang:t("menu_manage_company_funds_footer"),
-                        params = {
-                            event = "cdn-fuel:stations:client:managefunds",
-                        },
-                    },
-                    {
-                        header = Lang:t("menu_manage_change_name_header"),
-                        icon = "fas fa-pen",
-                        txt = Lang:t("menu_manage_change_name_footer"),
-                        disabled = not Config.GasStationNameChanges,
-                        params = {
-                            event = "cdn-fuel:stations:client:changestationname",
-                        },
-                    },
-                    {
-                        header = Lang:t("menu_sell_station_header_accept"),
-                        txt = Lang:t("menu_manage_sell_station_footer")..math.percent(Config.GasStationSellPercentage, GasStationCost),
-                        icon = "fas fa-usd",
-                        params = {
-                            event = "cdn-fuel:stations:client:sellstation:menu",
-                            args = {
-                                location = location,
-                            }
-                        },
-                    },
-                    {
-                        header = Lang:t("menu_header_close"),
-                        txt = Lang:t("menu_manage_close"),
-                        icon = "fas fa-times-circle",
-                        params = {
-                            event = "qb-menu:closeMenu",
-                        }
-                    },
-                })
+            local PlayerData = QBCore.Functions.GetPlayerData()
+            local ownerName = "Proprietário"
+            if PlayerData and PlayerData.charinfo then
+                ownerName = PlayerData.charinfo.firstname .. " " .. PlayerData.charinfo.lastname
             end
+
+            -- Check shutoff status before opening
+            QBCore.Functions.TriggerCallback('cdn-fuel:server:checkshutoff', function(isClosed)
+                if isClosed == nil then isClosed = false end -- Default to open if nil
+
+                SendNUIMessage({
+                    action = "openManagement",
+                    data = {
+                        balance = StationBalance or 0,
+                        fuelStock = Currentreserveamount or 0,
+                        maxStock = Config.MaxFuelReserves,
+                        fuelPrice = StationFuelPrice or 0,
+                        ownerName = ownerName,
+                        stationName = Config.GasStations[location].label,
+                        reservePrice = Config.FuelReservesPrice,
+                        isClosed = isClosed, -- Pass shutoff status
+                        logo = Config.GasStations[location].logo
+                    }
+                })
+                SetNuiFocus(true, true)
+            end, CurrentLocation)
+        else
+            if Config.FuelDebug then print("Not showing menu, as the player doesn't have proper permissions.") end
         end
     end)
+
 
     RegisterNetEvent('cdn-fuel:stations:client:managefunds', function(location) -- Menu, seen after selecting the Manage this Location Option.
         QBCore.Functions.TriggerCallback('cdn-fuel:server:isowner', function(result)
@@ -1166,7 +1049,9 @@ if Config.PlayerOwnedGasStationsEnabled then -- This is so Player Owned Gas Stat
 
     RegisterNetEvent('cdn-fuel:stations:client:purchasemenu', function(location) -- Menu, seen after selecting the purchase this location option.
         local bankmoney = QBCore.Functions.GetPlayerData().money['bank']
-        local costofstation = Config.GasStations[location].cost + GlobalTax(Config.GasStations[location].cost)
+        local baseCost = Config.GasStations[location].cost
+        local taxAmount = GlobalTax(baseCost)
+        local costofstation = baseCost + taxAmount
 
         if Config.OneStationPerPerson == true then
             QBCore.Functions.TriggerCallback('cdn-fuel:server:doesPlayerOwnStation', function(result)
@@ -1191,73 +1076,22 @@ if Config.PlayerOwnedGasStationsEnabled then -- This is so Player Owned Gas Stat
             QBCore.Functions.Notify(Lang:t("not_enough_money_in_bank").." R$"..costofstation, 'error', 7500) return
         end
 
-        if Config.Ox.Menu then
-            lib.registerContext({
-                id = 'purchasemenu',
-                title = Config.GasStations[location].label,
-                options = {
-                    {
-                        title = Lang:t("menu_purchase_station_confirm_header"),
-                        description = 'I am interested in purchasing this station!',
-                        icon = "fas fa-usd",
-                        arrow = true, -- puts arrow to the right
-                        event = 'cdn-fuel:stations:client:purchaselocation',
-                        args = {
-                            location = location,
-                        },
-                        metadata = {
-                            {label = 'Station Cost: $', value = Comma_Value(costofstation)..Lang:t("menu_purchase_station_header_2")},
-                        },
-                    },
-                    {
-                        title = Lang:t("menu_header_close"),
-                        description = Lang:t("menu_refuel_cancel"),
-                        icon = "fas fa-times-circle",
-                        arrow = false, -- puts arrow to the right
-                        onSelect = function()
-                            lib.hideContext()
-                          end,
-                    },
-                },
-            })
-            lib.showContext('purchasemenu')
-        else
-            exports['qb-menu']:openMenu({
-                {
-                    header = Config.GasStations[location].label,
-                    isMenuHeader = true,
-                    icon = "fas fa-gas-pump",
-                },
-                {
-                    header = "",
-                    icon = "fas fa-info-circle",
-                    isMenuHeader = true,
-                    txt = Lang:t("menu_purchase_station_header_1")..costofstation..Lang:t("menu_purchase_station_header_2"),
-                },
-                {
-                    header = Lang:t("menu_purchase_station_confirm_header"),
-                    icon = "fas fa-check-circle",
-                    txt = Lang:t("menu_purchase_station_confirm_footer")..costofstation..'!' ,
-                    params = {
-                        event = "cdn-fuel:stations:client:purchaselocation",
-                        args = {
-                            location = location,
-                        }
-                    }
-                },
-                {
-                    header = Lang:t("menu_header_close"),
-                    txt = Lang:t("menu_purchase_station_cancel_footer"),
-                    icon = "fas fa-times-circle",
-                    params = {
-                        event = "qb-menu:closeMenu",
-                    }
-                },
-            })
-        end
+        if Config.FuelDebug then print("Opening NUI Purchase Menu") end
+
+        SendNUIMessage({
+            action = "openPurchase",
+            data = {
+                stationName = Config.GasStations[location].label,
+                price = costofstation,
+                tax = taxAmount
+            }
+        })
+        SetNuiFocus(true, true)
     end)
 
-    RegisterNetEvent('cdn-fuel:stations:openmenu', function() -- Menu #1, the first menu you see.
+    RegisterNetEvent('cdn-fuel:stations:openmenu', function(location) -- Menu #1, the first menu you see.
+        if location then CurrentLocation = location end
+        if not CurrentLocation then return end -- Safety check
         DisablePurchase = true
         DisableOwnerMenu = true
         ShutOffDisabled = false
@@ -1303,101 +1137,226 @@ if Config.PlayerOwnedGasStationsEnabled then -- This is so Player Owned Gas Stat
 
         Wait(Config.WaitTime)
 
-        if Config.Ox.Menu then
-            lib.registerContext({
-                id = 'stationmainmenu',
-                title = Config.GasStations[CurrentLocation].label,
-                options = {
-                    {
-                        title = Lang:t("menu_ped_manage_location_header"),
-                        description = Lang:t("menu_ped_manage_location_footer"),
-                        icon = "fas fa-gas-pump",
-                        arrow = false, -- puts arrow to the right
-                        event = 'cdn-fuel:stations:client:managemenu',
-                        args = CurrentLocation,
-                        disabled = DisableOwnerMenu,
-                    },
-                    {
-                        title = Lang:t("menu_ped_purchase_location_header"),
-                        description = Lang:t("menu_ped_purchase_location_footer"),
-                        icon = "fas fa-usd",
-                        arrow = false, -- puts arrow to the right
-                        event = 'cdn-fuel:stations:client:purchasemenu',
-                        args = CurrentLocation,
-                        disabled = DisablePurchase,
-                    },
-                    {
-                        title = Lang:t("menu_ped_emergency_shutoff_header"),
-                        description = Lang:t("menu_ped_emergency_shutoff_footer")..PumpState,
-                        icon = "fas fa-gas-pump",
-                        arrow = false, -- puts arrow to the right
-                        event = 'cdn-fuel:stations:client:Shutoff',
-                        args = CurrentLocation,
-                        disabled = ShutOffDisabled,
-                    },
-                    {
-                        title = Lang:t("menu_header_close"),
-                        description = Lang:t("menu_refuel_cancel"),
-                        icon = "fas fa-times-circle",
-                        arrow = false, -- puts arrow to the right
-                        onSelect = function()
-                            lib.hideContext()
-                          end,
-                    },
-                },
-            })
-            lib.showContext('stationmainmenu')
-        else
-            exports['qb-menu']:openMenu({
-                {
-                    header = Config.GasStations[CurrentLocation].label,
-                    isMenuHeader = true,
-                    icon = "fas fa-gas-pump",
-                },
-                {
-                    header = Lang:t("menu_ped_manage_location_header"),
-                    txt = Lang:t("menu_ped_manage_location_footer"),
-                    icon = "fas fa-usd",
-                    params = {
-                        event = "cdn-fuel:stations:client:managemenu",
-                        args = CurrentLocation,
-                    },
-                    disabled = DisableOwnerMenu,
-                },
-                {
-                    header = Lang:t("menu_ped_purchase_location_header"),
-                    txt = Lang:t("menu_ped_purchase_location_footer"),
-                    icon = "fas fa-usd",
-                    params = {
-                        event = "cdn-fuel:stations:client:purchasemenu",
-                        args = CurrentLocation,
-                    },
-                    disabled = DisablePurchase,
-                },
-                {
-                    header = Lang:t("menu_ped_emergency_shutoff_header"),
-                    txt = Lang:t("menu_ped_emergency_shutoff_footer")..PumpState,
-                    icon = "fas fa-gas-pump",
-                    params = {
-                        event = "cdn-fuel:stations:client:Shutoff",
-                        args = CurrentLocation,
-                    },
-                    disabled = ShutOffDisabled,
-                },
-                {
-                    header = Lang:t("menu_ped_close_header"),
-                    txt = Lang:t("menu_ped_close_footer"),
-                    icon = "fas fa-times-circle",
-                    params = {
-                        event = "qb-menu:closeMenu",
-                    }
-                },
-            })
-        end
+        if Config.FuelDebug then print("Opening NUI Interaction Menu") end
+        
+        SendNUIMessage({
+            action = "openInteraction",
+            data = {
+                stationName = Config.GasStations[CurrentLocation].label,
+                isOwner = not DisableOwnerMenu,
+                canPurchase = not DisablePurchase,
+                pumpState = PumpState, -- "enabled." or "disabled." or "nil"
+                shutoffDisabled = ShutOffDisabled
+            }
+        })
+        SetNuiFocus(true, true)
     end)
 
     -- Threads
     CreateThread(function() -- Spawn the Peds for Gas Stations when the resource starts.
         SpawnGasStationPeds()
+    end)
+    -- NUI Callbacks for Management
+    RegisterNUICallback('manage:deposit', function(data, cb)
+        if not CurrentLocation then return end
+        TriggerServerEvent('cdn-fuel:station:server:Deposit', tonumber(data.amount), CurrentLocation, StationBalance)
+        cb('ok')
+    end)
+
+    RegisterNUICallback('manage:withdraw', function(data, cb)
+        if not CurrentLocation then return end
+        TriggerServerEvent('cdn-fuel:station:server:Withdraw', tonumber(data.amount), CurrentLocation, StationBalance)
+        cb('ok')
+    end)
+
+    RegisterNUICallback('manage:changePrice', function(data, cb)
+        if not CurrentLocation then return end
+        TriggerServerEvent("cdn-fuel:station:server:updatefuelprice", tonumber(data.price), CurrentLocation)
+        cb('ok')
+    end)
+
+    RegisterNUICallback('manage:buyStock', function(data, cb)
+        if not CurrentLocation then return end
+        local amount = tonumber(data.amount)
+        -- Recalculate price with Tax to ensure server compatibility
+        local price = math.ceil(GlobalTax(amount * Config.FuelReservesPrice) + (amount * Config.FuelReservesPrice))
+        TriggerServerEvent('cdn-fuel:stations:server:buyreserves', CurrentLocation, price, amount)
+        cb('ok')
+    end)
+
+    RegisterNUICallback('manage:toggleStatus', function(data, cb)
+        if not CurrentLocation then return end
+        TriggerServerEvent("cdn-fuel:stations:server:Shutoff", CurrentLocation)
+        cb('ok')
+    end)
+
+    RegisterNUICallback('manage:renameStation', function(data, cb)
+        if not CurrentLocation then return end
+        TriggerServerEvent("cdn-fuel:station:server:updatelocationname", data.name, CurrentLocation)
+        cb('ok')
+    end)
+
+    RegisterNUICallback('manage:updateLogo', function(data, cb)
+        if not CurrentLocation then return end
+        TriggerServerEvent("cdn-fuel:station:server:updatelogo", data.url, CurrentLocation)
+        cb('ok')
+    end)
+
+    RegisterNUICallback('manage:sellStation', function(data, cb)
+        if not CurrentLocation then return end
+        TriggerServerEvent("cdn-fuel:stations:server:sellstation", CurrentLocation)
+        cb('ok')
+        SetNuiFocus(false, false)
+        SendNUIMessage({ action = "close" })
+    end)
+
+    RegisterNUICallback('manage:getSales', function(data, cb)
+        if not CurrentLocation then cb({}) return end
+        QBCore.Functions.TriggerCallback('cdn-fuel:server:getSales', function(result)
+            cb(result)
+        end, CurrentLocation)
+    end)
+
+    RegisterNUICallback('manage:getAnalytics', function(data, cb)
+        if Config.FuelDebug then print("CDN-Fuel: NUI manage:getAnalytics called. CurrentLocation: " .. tostring(CurrentLocation)) end
+        if not CurrentLocation then cb({}) return end
+        QBCore.Functions.TriggerCallback('cdn-fuel:server:getAnalytics', function(result)
+            if Config.FuelDebug then print("CDN-Fuel: Analytics result received from server.") end
+            cb(result)
+        end, CurrentLocation)
+    end)
+
+    RegisterNUICallback('manage:closeWeek', function(data, cb)
+        if not CurrentLocation then return end
+        TriggerServerEvent('cdn-fuel:server:closeWeek', CurrentLocation, data.startDate, data.endDate)
+        cb('ok')
+    end)
+
+    RegisterNUICallback('interaction:manage', function(data, cb)
+        if not CurrentLocation then return end
+        TriggerEvent('cdn-fuel:stations:client:managemenu', CurrentLocation)
+        cb('ok')
+    end)
+
+    RegisterNUICallback('interaction:purchase', function(data, cb)
+        if not CurrentLocation then return end
+        TriggerEvent('cdn-fuel:stations:client:purchasemenu', CurrentLocation)
+        cb('ok')
+    end)
+
+    RegisterNUICallback('interaction:shutoff', function(data, cb)
+        if not CurrentLocation then return end
+        TriggerEvent('cdn-fuel:stations:client:Shutoff', CurrentLocation)
+        cb('ok')
+    end)
+
+
+
+    RegisterNUICallback('purchase:confirm', function(data, cb)
+        if not CurrentLocation then return end
+        -- Trigger original purchase logic
+        TriggerEvent('cdn-fuel:stations:client:purchaselocation', { location = CurrentLocation })
+        
+        SetNuiFocus(false, false)
+        SendNUIMessage({ action = "close" })
+        cb('ok')
+    end)
+
+    local StationProps = {} -- Tracks entities: { ped = entity, charger = entity, pumps = {e1, e2} }
+
+    AddEventHandler('onResourceStop', function(resource)
+        if resource == GetCurrentResourceName() then
+            -- Cleanup Global Props tracked here
+            for id, props in pairs(StationProps) do
+                if DoesEntityExist(props.ped) then DeleteEntity(props.ped) end
+                if DoesEntityExist(props.charger) then DeleteEntity(props.charger) end
+                if props.pumps then
+                    for _, p in ipairs(props.pumps) do
+                        if DoesEntityExist(p) then DeleteEntity(p) end
+                    end
+                end
+            end
+        end
+    end)
+
+    RegisterNetEvent('cdn-fuel:client:syncStations', function(newId, stationData)
+        if not newId or not stationData or not Config.PlayerOwnedGasStationsEnabled then return end
+        
+        -- Update Local Config so interaction works
+        local current = stationData
+        Config.GasStations[newId] = current
+
+        print("[DEBUG] SyncStations called for ID: " .. newId .. " Type: " .. tostring(current.type))
+
+        -- Cleanup existing props if update (prevent duplicates)
+        if StationProps[newId] then
+            local old = StationProps[newId]
+            if DoesEntityExist(old.ped) then DeleteEntity(old.ped) end
+            if DoesEntityExist(old.charger) then DeleteEntity(old.charger) end
+            if old.pumps then
+                for _, p in ipairs(old.pumps) do if DoesEntityExist(p) then DeleteEntity(p) end end
+            end
+        end
+        StationProps[newId] = {} -- Init storage
+
+        if current.type == 'air' or current.type == 'water' then
+            print("[DEBUG] Triggering createDynamicAirSeaZone for ID: " .. newId)
+            TriggerEvent('cdn-fuel:client:createDynamicAirSeaZone', newId, current)
+            -- Continue execution to allow Ped spawning? 
+            -- If we want standard peds for these stations, we continue. 
+            -- If we want NO peds or different behavior, we handle it here.
+            -- For now, let's assume we still want the Ped for interaction (buying reserves, managing).
+        end
+
+        -- Logic to spawn just this ped
+        local model = type(current.pedmodel) == 'string' and joaat(current.pedmodel) or current.pedmodel or joaat('mp_m_shopkeep_01')
+        RequestAndLoadModel(model)
+        
+        local ped = CreatePed(0, model, current.pedcoords.x, current.pedcoords.y, current.pedcoords.z, current.pedcoords.w, false, false)
+        FreezeEntityPosition(ped, true)
+        SetEntityInvincible(ped, true)
+        SetBlockingOfNonTemporaryEvents(ped, true)
+        StationProps[newId].ped = ped -- Track it
+        
+        exports['qb-target']:AddTargetEntity(ped, {
+            options = {
+                {
+                    type = "client",
+                    label = Lang:t("station_talk_to_ped"),
+                    icon = "fas fa-building",
+                    action = function()
+                        TriggerEvent('cdn-fuel:stations:openmenu', newId)
+                    end,
+                },
+            },
+            distance = 2.0
+        })
+        
+        if Config.FuelDebug then print("Spawned dynamic ped for station #" .. newId) end
+
+        -- Spawn electric charger if exists
+        if current.electricchargercoords then
+            local chargerModel = GetHashKey('electric_charger')
+            RequestAndLoadModel(chargerModel)
+            local charger = CreateObject(chargerModel, current.electricchargercoords.x, current.electricchargercoords.y, current.electricchargercoords.z, false, false, false)
+            SetEntityHeading(charger, current.electricchargercoords.w)
+            FreezeEntityPosition(charger, true)
+            StationProps[newId].charger = charger -- Track it
+            if Config.FuelDebug then print("Spawned dynamic charger for station #" .. newId) end
+        end
+
+        -- Spawn fuel pumps if exists AND not air/water (since they use dynamic zones/props or none)
+        if current.fuelpumpcoords and #current.fuelpumpcoords > 0 and (current.type ~= 'air' and current.type ~= 'water') then
+            StationProps[newId].pumps = {}
+            local pumpModel = GetHashKey('prop_gas_pump_1d')
+            RequestAndLoadModel(pumpModel)
+            for _, pumpCoord in ipairs(current.fuelpumpcoords) do
+                local pump = CreateObject(pumpModel, pumpCoord.x, pumpCoord.y, pumpCoord.z, false, false, false)
+                SetEntityHeading(pump, pumpCoord.w)
+                FreezeEntityPosition(pump, true)
+                table.insert(StationProps[newId].pumps, pump) -- Track it
+            end
+            if Config.FuelDebug then print("Spawned dynamic pumps for station #" .. newId) end
+        end
     end)
 end -- For Config.PlayerOwnedGasStationsEnabled check, don't remove!

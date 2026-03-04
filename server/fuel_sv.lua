@@ -16,7 +16,7 @@ if Config.RenewedPhonePayment then
 	end)
 end
 
-RegisterNetEvent("cdn-fuel:server:OpenMenu", function(amount, inGasStation, hasWeapon, purchasetype, FuelPrice)
+RegisterNetEvent("cdn-fuel:server:OpenMenu", function(amount, inGasStation, hasWeapon, purchasetype, FuelPrice, location)
 	local src = source
 	if not src then return end
 	local player = QBCore.Functions.GetPlayer(src)
@@ -29,49 +29,18 @@ RegisterNetEvent("cdn-fuel:server:OpenMenu", function(amount, inGasStation, hasW
 		if Config.RenewedPhonePayment and purchasetype == "bank" then
 			TriggerClientEvent("cdn-fuel:client:phone:PayForFuel", src, amount)
 		else
-			if Config.Ox.Menu then
-				if Config.FuelDebug then print("going to open the context menu (OX)") end
-				TriggerClientEvent('cdn-fuel:client:OpenContextMenu', src, total, amount, purchasetype)
-			else
-				TriggerClientEvent('qb-menu:client:openMenu', src, {
-					{
-						header = Lang:t("menu_refuel_header"),
-						isMenuHeader = true,
-						icon = "fas fa-gas-pump",
-					},
-					{
-						header = "",
-						icon = "fas fa-info-circle",
-						isMenuHeader = true,
-						txt = Lang:t("menu_purchase_station_header_1")..math.ceil(total)..Lang:t("menu_purchase_station_header_2") ,
-					},
-					{
-						header = Lang:t("menu_purchase_station_confirm_header"),
-						icon = "fas fa-check-circle",
-						txt = Lang:t("menu_refuel_accept"),
-						params = {
-							event = "cdn-fuel:client:RefuelVehicle",
-							args = {
-								fuelamounttotal = amount,
-								purchasetype = purchasetype,
-							}
-						}
-					},
-					{
-						header = Lang:t("menu_header_close"),
-						txt = Lang:t("menu_refuel_cancel"),
-						icon = "fas fa-times-circle",
-						params = {
-							event = "qb-menu:closeMenu",
-						}
-					},
-				})
-			end
+			if Config.FuelDebug then print("Skipping context menu (NUI override), starting refuel.") end
+			TriggerClientEvent('cdn-fuel:client:RefuelVehicle', src, {
+				fuelamounttotal = amount,
+				purchasetype = purchasetype,
+                location = location
+			})
+
 		end
 	end
 end)
 
-RegisterNetEvent("cdn-fuel:server:PayForFuel", function(amount, purchasetype, FuelPrice, electric)
+RegisterNetEvent("cdn-fuel:server:PayForFuel", function(amount, purchasetype, FuelPrice, electric, cachedPrice, location)
 	local src = source
 	if not src then return end
 	local Player = QBCore.Functions.GetPlayer(src)
@@ -80,6 +49,26 @@ RegisterNetEvent("cdn-fuel:server:PayForFuel", function(amount, purchasetype, Fu
 	if amount < 1 then
 		total = 0
 	end
+	
+    -- Sales Logging
+    if location and location ~= 0 then
+        local buyerName = Player.PlayerData.charinfo.firstname .. " " .. Player.PlayerData.charinfo.lastname
+        local fuelAmount = 0
+        if FuelPrice and FuelPrice > 0 then
+             fuelAmount = total / FuelPrice -- Rough estimate if not passed explicitly, or we can trust client? Client logic for amount is 'cost' here. 'amount' arg is COST.
+             -- Wait, 'amount' in PayForFuel is COST/TOTAL?
+             -- Line 53 says: "Attempting to charge client: $"..total.." for Fuel".
+             -- So 'amount' is MONEY.
+             -- Fuel Liters = amount / FuelPrice (approx).
+             -- Or I should calculate it better.
+             -- Let's just store the cost.
+             fuelAmount = math.floor((amount / (FuelPrice + GlobalTax(FuelPrice))) * 100) / 100
+        end
+
+        local insertData = "INSERT INTO fuel_station_sales (station_location, buyer_name, amount, cost, payment_type) VALUES (?, ?, ?, ?, ?)"
+        MySQL.Async.execute(insertData, {location, buyerName, fuelAmount, total, purchasetype})
+    end
+
 	local moneyremovetype = purchasetype
 	if Config.FuelDebug then print("Player is attempting to purchase fuel with the money type: " ..moneyremovetype) end
 	if Config.FuelDebug then print("Attempting to charge client: $"..total.." for Fuel @ "..FuelPrice.." PER LITER | PER KW") end
@@ -93,27 +82,51 @@ RegisterNetEvent("cdn-fuel:server:PayForFuel", function(amount, purchasetype, Fu
 	Player.Functions.RemoveMoney(moneyremovetype, total, payString)
 end)
 
-RegisterNetEvent("cdn-fuel:server:purchase:jerrycan", function(purchasetype)
+RegisterNetEvent("cdn-fuel:server:purchase:jerrycan", function(purchasetype, amount, location)
 	local src = source if not src then return end
+    local amount = amount or 1
 	local Player = QBCore.Functions.GetPlayer(src) if not Player then return end
-	local tax = GlobalTax(Config.JerryCanPrice) local total = math.ceil(Config.JerryCanPrice + tax)
+	local tax = GlobalTax(Config.JerryCanPrice) 
+    local total = math.ceil((Config.JerryCanPrice + tax) * amount)
 	local moneyremovetype = purchasetype
 	if purchasetype == "bank" then
 		moneyremovetype = "bank"
 	elseif purchasetype == "cash" then
 		moneyremovetype = "cash"
 	end
+
+    -- Sales Logging & Station Balance
+    if location and location ~= 0 then
+        local buyerName = Player.PlayerData.charinfo.firstname .. " " .. Player.PlayerData.charinfo.lastname
+        local fuelToDeduct = (Config.JerryCanGas or 0) * (amount or 1)
+        
+        -- Log the total fuel amount (Liters), not the quantity of items
+        local insertData = "INSERT INTO fuel_station_sales (station_location, buyer_name, amount, cost, payment_type) VALUES (?, ?, ?, ?, ?)"
+        MySQL.Async.execute(insertData, {location, buyerName, fuelToDeduct, total, purchasetype})
+
+        -- Update Station Balance & Deduct Stock if owned
+        if Config.PlayerOwnedGasStationsEnabled then
+             -- Update Balance
+             MySQL.Async.execute('UPDATE fuel_stations SET balance = balance + ? WHERE location = ? AND owned = 1', {total, location})
+             
+             -- Deduct Stock
+             if fuelToDeduct > 0 then
+                 MySQL.Async.execute('UPDATE fuel_stations SET fuel = fuel - ? WHERE location = ? AND owned = 1', {fuelToDeduct, location})
+             end
+        end
+    end
+
 	if Config.Ox.Inventory then
 		local info = {cdn_fuel = tostring(Config.JerryCanGas)}
-		exports.ox_inventory:AddItem(src, 'jerrycan', 1, info)
+		exports.ox_inventory:AddItem(src, 'jerrycan', amount, info)
 		local hasItem = exports.ox_inventory:GetItem(src, 'jerrycan', info, 1)
 		if hasItem then
 			Player.Functions.RemoveMoney(moneyremovetype, total, Lang:t("jerry_can_payment_label"))
 		end
 	else
 		local info = {gasamount = Config.JerryCanGas}
-		if Player.Functions.AddItem("jerrycan", 1, false, info) then -- Dont remove money if AddItem() not possible!
-			TriggerClientEvent('inventory:client:ItemBox', src, QBCore.Shared.Items['jerrycan'], "add")
+		if Player.Functions.AddItem("jerrycan", amount, false, info) then -- Dont remove money if AddItem() not possible!
+			TriggerClientEvent('inventory:client:ItemBox', src, QBCore.Shared.Items['jerrycan'], "add", amount)
 			Player.Functions.RemoveMoney(moneyremovetype, total, Lang:t("jerry_can_payment_label"))
 		end
 	end

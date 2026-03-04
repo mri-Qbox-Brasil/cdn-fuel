@@ -4,6 +4,18 @@ author 'https://www.github.com/CodineDev' -- Base Refueling System: (https://git
 description 'cdn-fuel'
 version '2.1.9'
 
+ui_page 'web/dist/index.html'
+
+sql 'assets/sql/cdn-fuel.sql'
+
+files {
+    'web/dist/index.html',
+    'web/dist/assets/*.js',
+    'web/dist/assets/*.css',
+    -- 'web/dist/vite.svg'
+}
+
+
 shared_scripts {
     'shared/config.lua',
     '@qb-core/shared/locale.lua',
@@ -21,10 +33,12 @@ client_scripts {
     'client/fuel_cl.lua',
     'client/electric_cl.lua',
     'client/station_cl.lua',
-    'client/utils.lua'
+    'client/utils.lua',
+    'client/creator_cl.lua'
 }
 
 server_scripts {
+    'server/dynamic_sv.lua',
     'server/fuel_sv.lua',
     'server/station_sv.lua',
     'server/electric_sv.lua',

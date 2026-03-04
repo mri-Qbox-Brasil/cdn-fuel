@@ -70,6 +70,7 @@ local Translations = {
     station_reserve_cannot_fit = "As reservas não podem conter isso!",
     station_reserves_over_max =  "Você não pode comprar essa quantidade, pois será maior que o máximo de "..Config.MaxFuelReserves.." litros",
     station_name_change_success = "Nome alterado com sucesso para: ", -- Leave the space @ the end!
+    station_shutoff_active = "Este posto está fechado no momento e as bombas estão travadas.",
     station_purchased_location_payment_label = "Local de Posto de Gasolina Comprado: ",
     station_sold_location_payment_label = "Local de Posto de Gasolina Vendido: ",
     station_withdraw_payment_label = "Dinheiro retirado do Posto de Gasolina. Local: ",
